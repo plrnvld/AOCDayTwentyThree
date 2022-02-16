@@ -28,7 +28,7 @@ class Pos(IntEnum):
     D3 = 53
     D4 = 54
 
-class Part(Enum):
+class Part(IntEnum):
     X = 1
     A = 2
     B = 3
