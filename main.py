@@ -1,4 +1,4 @@
-from enum import IntEnum, Enum
+from enum import IntEnum
 class Pos(IntEnum):
     X1 = 1
     X2 = 2
