@@ -42,13 +42,6 @@ class AmphiPositions:
             self.allValues.append()
 
 
-
-def dist(pos1: Pos, pos2: Pos):
-    if pos1 == pos2:
-        return 0
-    else:
-        return None
-
 def is_x_pos(pos: Pos):
     return enum_is_in_range(pos, 1, 11)
 
@@ -82,5 +75,37 @@ def get_part(pos: Pos):
     else:
         return Pos(divide)
 
-pos = Pos.X11
-print(f"Engage {get_part(pos)} {get_rel_num(pos)}") 
+def get_pos(part: Part, rel_num):
+    int_part = int(part)
+    if (int_part == 1):
+        return rel_num
+    else:
+        return int_part * 10 + rel_num
+
+def dist(pos1: Pos, pos2: Pos):
+    part1 = get_part(pos1)
+    part2 = get_part(pos2)
+    num1 = get_rel_num(pos1)
+    num2 = get_rel_num(pos2)
+
+    if part1 == part2:
+        return abs(num1 - num2)    
+    if part1 != Part.X and part2 != Part.X:
+        corridor = 2 * abs(part1 - part2)
+        dist_from_corr_1 = 5 - num1
+        dist_from_corr_2 = 5 - num2
+        return corridor + dist_from_corr_1 + dist_from_corr_2
+    if part1 == Part.X:
+        dist_from_corr = 5 - num2
+        dist_to_room = abs(num1 - corridor_entry(part2))
+        return dist_from_corr + dist_to_room
+    dist_from_corr = 5 - num1
+    dist_to_room = abs(num2 - corridor_entry(part1))
+    return dist_from_corr + dist_to_room
+
+def corridor_entry(part: Part):
+    return 1 + int(part)
+
+pos1 = Pos.D3
+pos2 = Pos.B1
+print(f"Dist = {dist(pos1, pos2)}") 
