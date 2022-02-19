@@ -35,18 +35,37 @@ class Part(IntEnum):
     C = 4
     D = 5
 
+class Pawn:
+    def __init__(self, start_pos: Pos, dest_part: Part):
+        self.moves = 0
+        self.start_pos = start_pos
+        self.curr_pos = start_pos
+        self.dest_part = dest_part
+
+    def didnt_move(self):
+        return self.moves == 0
+
+    def is_finished(self): 
+        return self.moves == 2
+
+    def corridor_entry_pos(self): 
+        start_part = get_part(self.start_pos)
+        corr_pos = 2* start_part - 1
+        return get_pos(Part.X, corr_pos)
+
+    def corridor_start_blockers(self):
+        start_part = get_part(self.start_pos)
+        start_num = get_rel_num(self.start_pos)
+        return [get_pos(start_part, n) for n in reversed(range(4, start_num, -1))]
+
 class Board:
-    def __init__(self):
-        self.pawns = {	
-            "A": [Pos.C2, Pos.C4, Pos.D1, Pos.D3],
-            "B": [Pos.A1, Pos.A4, Pos.B2, Pos.C3],
-            "C": [Pos.B1, Pos.B3, Pos.B4, Pos.D2],
-            "D": [Pos.A2, Pos.A3, Pos.C1, Pos.D4]
-        }
+    def __init__(self, pawns):
+        self.pawns: list[Pawn] = pawns
+        self.occupied = map(lambda p: p.curr_pos, pawns)
 
-    def in_corridor(self, part: Part):
-        ### Continue here
-
+    def is_occupied(self, pos: Pos): 
+        return pos in self.occupied
+   
 def is_x_pos(pos: Pos):
     return enum_is_in_range(pos, 1, 11)
 
@@ -83,9 +102,9 @@ def get_part(pos: Pos):
 def get_pos(part: Part, rel_num):
     int_part = int(part)
     if (int_part == 1):
-        return rel_num
+        return Pos(rel_num)
     else:
-        return int_part * 10 + rel_num
+        return Pos(int_part * 10 + rel_num)
 
 def dist(pos1: Pos, pos2: Pos):
     part1 = get_part(pos1)
@@ -111,10 +130,21 @@ def dist(pos1: Pos, pos2: Pos):
 def corridor_entry(part: Part):
     return 1 + int(part)
 
-board = Board()
+pawns = [
+    Pawn(Pos.A1, Part.B), Pawn(Pos.A2, Part.D), Pawn(Pos.A3, Part.D), Pawn(Pos.A4, Part.D),
+    Pawn(Pos.B1, Part.C), Pawn(Pos.B2, Part.B), Pawn(Pos.B3, Part.C), Pawn(Pos.B4, Part.C),
+    Pawn(Pos.C1, Part.D), Pawn(Pos.C2, Part.A), Pawn(Pos.C3, Part.B), Pawn(Pos.C4, Part.A),
+    Pawn(Pos.D1, Part.A), Pawn(Pos.D2, Part.C), Pawn(Pos.D3, Part.A), Pawn(Pos.D4, Part.D),
+]
 
-pos1 = Pos.D3
-pos2 = Pos.B1
+board = Board(pawns)
+
+pos1 = Pos.C3
+pos2 = Pos.B4
 print(f"Dist = {dist(pos1, pos2)}")
-in_corry_a = board.in_corridor(Part.A)
-print(f"In a = {list(in_corry_a)}") 
+print(f"Occupied {pos1.name}: {board.is_occupied(pos1)}")
+
+pawn_test = Pawn(pos1, Part.B)
+print(f"Corr pos {pos1.name}: {pawn_test.corridor_entry_pos().name}")
+
+print(f"Start blockers: {pos1.name}: {list(map(lambda p: p.name, pawn_test.corridor_start_blockers()))}")
