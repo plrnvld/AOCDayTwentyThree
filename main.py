@@ -35,12 +35,17 @@ class Part(IntEnum):
     C = 4
     D = 5
 
-class AmphiPositions:
-    def __init__(self, lines):
-        self.startPositions = []
-        for line in lines:
-            self.allValues.append()
+class Board:
+    def __init__(self):
+        self.pawns = {	
+            "A": [Pos.C2, Pos.C4, Pos.D1, Pos.D3],
+            "B": [Pos.A1, Pos.A4, Pos.B2, Pos.C3],
+            "C": [Pos.B1, Pos.B3, Pos.B4, Pos.D2],
+            "D": [Pos.A2, Pos.A3, Pos.C1, Pos.D4]
+        }
 
+    def in_corridor(self, part: Part):
+        ### Continue here
 
 def is_x_pos(pos: Pos):
     return enum_is_in_range(pos, 1, 11)
@@ -106,6 +111,10 @@ def dist(pos1: Pos, pos2: Pos):
 def corridor_entry(part: Part):
     return 1 + int(part)
 
+board = Board()
+
 pos1 = Pos.D3
 pos2 = Pos.B1
-print(f"Dist = {dist(pos1, pos2)}") 
+print(f"Dist = {dist(pos1, pos2)}")
+in_corry_a = board.in_corridor(Part.A)
+print(f"In a = {list(in_corry_a)}") 
