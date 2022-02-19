@@ -65,6 +65,9 @@ class Board:
 
     def is_occupied(self, pos: Pos): 
         return pos in self.occupied
+
+    def dest_corridor_open(self, pawn: Pawn):
+        return self.is_occupied(get_pos(pawn.dest_part, 4))
    
 def is_x_pos(pos: Pos):
     return enum_is_in_range(pos, 1, 11)
