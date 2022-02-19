@@ -1,4 +1,6 @@
 from enum import IntEnum
+from itertools import takewhile
+
 class Pos(IntEnum):
     X1 = 1
     X2 = 2
@@ -66,9 +68,11 @@ class Board:
     def is_occupied(self, pos: Pos): 
         return pos in self.occupied
 
-    def dest_corridor_open(self, pawn: Pawn):
-        return self.is_occupied(get_pos(pawn.dest_part, 4))
-   
+    def dest_open(self, pawn: Pawn):
+        if self.is_occupied(get_pos(pawn.dest_part, 4)):
+            return False
+        return not any(lambda p: get_part(p.curr_pos) == pawn.dest_part and p.dest_part != pawn.dest_part)
+        
 def is_x_pos(pos: Pos):
     return enum_is_in_range(pos, 1, 11)
 
