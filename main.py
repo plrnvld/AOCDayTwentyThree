@@ -109,6 +109,14 @@ class Pawn:
         self.total_dist += old_pos.dist(pos)
         self.moves += 1
 
+    def move_new(self, pos: Pos):
+        old_pos = self.curr_pos
+        new_pawn = Pawn(self.start_pos, self.dest_part)
+        new_pawn.curr_pos = pos
+        new_pawn.total_dist += old_pos.dist(pos)
+        new_pawn.moves = self.moves + 1
+        return new_pawn
+
     def curr_part(self):
         return self.curr_pos.part()   
 
@@ -142,13 +150,30 @@ class Board:
         return others_lower.size == pawn_num - 1 and all(lambda p: p.part() == p.dest_part, others_lower)
 
     def next_positions(self, pawn: Pawn):
+        allowed_positions = []
         if pawn.is_finished():
-            return []
-        
-        ############### Continue her
+            return allowed_positions
+
+        # if pawn.part() == Part.X:
+            ############### Continue here
+
+
+
+def get_path(start: Pos, end: Pos):
+    path = []
+    start_part = start.part()
+    start_num = start.num()
+    end_part = end.part()
+    end_num = end.num()
+    if start_part == end_part:
+        if start_num == end_num:
+            return path
+    return path
+
+    #################### And continue here
 
 def corridor_entry(part: Part):
-    return 1 + int(part)
+    return 1 + int(part)    
 
 pawns = [
     Pawn(Pos.A1, Part.B), Pawn(Pos.A2, Part.D), Pawn(Pos.A3, Part.D), Pawn(Pos.A4, Part.D),
