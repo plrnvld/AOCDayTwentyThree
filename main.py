@@ -1,4 +1,7 @@
+
 from enum import IntEnum
+from itertools import takewhile
+from itertools import dropwhile
 
 class Part(IntEnum):
     X = 1
@@ -7,16 +10,41 @@ class Part(IntEnum):
     C = 4
     D = 5
 
+    def max_num(self):
+        if self == Part.X: 
+            return 11
+        else:
+            return 4
+            
+    def is_room(self):
+        return self != Part.X
+
+    def to_x_num(self):
+        if (self == Part.X):
+            raise ValueError('Not supported for X.')
+        return 2 * self - 1
+
+    def to_x_pos(self):
+        return Pos.build(Part.X, self.to_x_num())
+
+    def all_positions_asc(self):
+        max_num = self.max_num()
+        numbers = range(1, max_num + 1)
+        return list(map(lambda n: Pos.build(self, n), numbers))
+
+    def __repr__(self):
+        return self.name
+
 class Pos(IntEnum):
     X1 = 1
     X2 = 2
-    X3 = 3
+    X3 = 3 # Does this position even matter?
     X4 = 4
-    X5 = 5
+    X5 = 5 # Does this position even matter?
     X6 = 6
-    X7 = 7
+    X7 = 7 # Does this position even matter? 
     X8 = 8
-    X9 = 9
+    X9 = 9 # Does this position even matter?
     X10 = 10
     X11 = 11
     A1 = 21
@@ -36,6 +64,9 @@ class Pos(IntEnum):
     D3 = 53
     D4 = 54
 
+    def __repr__(self):
+        return self.name
+
     def num(self):
         enum_int = int(self)
         if (enum_int >= 20):
@@ -46,9 +77,9 @@ class Pos(IntEnum):
     def part(self):
         divide = int(int(self) / 10)
         if (divide == 0):
-            return Pos(1)
+            return Part(1)
         else:
-            return Pos(divide)
+            return Part(divide)
 
     def has_part(self, part):
         return self.part() == part
@@ -68,10 +99,10 @@ class Pos(IntEnum):
             return corridor + dist_from_corr_1 + dist_from_corr_2
         if part1 == Part.X:
             dist_from_corr = 5 - num2
-            dist_to_room = abs(num1 - corridor_entry(part2))
+            dist_to_room = abs(num1 - part2.to_x_num())
             return dist_from_corr + dist_to_room
         dist_from_corr = 5 - num1
-        dist_to_room = abs(num2 - corridor_entry(part1))
+        dist_to_room = abs(num2 - part1.to_x_num())
         return dist_from_corr + dist_to_room
 
     @classmethod
@@ -90,12 +121,15 @@ class Pawn:
         self.dest_part = dest_part
         self.total_dist = 0
 
+    def num(self):
+        return self.curr_pos.num()
+
     def didnt_move(self):
         return self.moves == 0
     
     def corridor_entry_pos(self): 
         start_part = self.start_pos.part()
-        corr_pos = 2* start_part - 1
+        corr_pos = start_part.to_x_num()
         return Pos.build(Part.X, corr_pos)
 
     def corridor_start_passage(self):
@@ -118,15 +152,23 @@ class Pawn:
         return new_pawn
 
     def curr_part(self):
-        return self.curr_pos.part()   
+        return self.curr_pos.part()
+
+    def __repr__(self):
+        return "Pawn at %s, dest = %s" % (self.curr_pos.name, self.dest_part)
 
 class Board:
     def __init__(self, pawns):
         self.pawns: list[Pawn] = pawns
-        self.occupied = map(lambda p: p.curr_pos, pawns)
 
     def is_occupied(self, pos: Pos):
-        return pos in self.occupied
+        return pos in map(lambda p: p.curr_pos, self.pawns)
+
+    def is_allowed(self, pos: Pos):
+        return not pos in [Pos.X3, Pos.X5, Pos.X7, Pos.X9]
+
+    def is_takable(self, pos: Pos):
+        return not self.is_occupied(pos) and self.is_takable(pos)
 
     def dest_open(self, pawn: Pawn):
         if self.is_occupied(Pos.build(pawn.dest_part, 4)):
@@ -138,6 +180,9 @@ class Board:
             return True
         return all(map(lambda p: not self.is_occupied(p), pawn.corridor_start.passage()))
 
+    def pawn_at(self, pos: Pos):
+        return next((p for p in pawns if p.curr_pos == pos), None)
+
     def is_finished(self, pawn: Pawn): 
         if pawn.moves == 2:
             return True
@@ -145,38 +190,65 @@ class Board:
             return False
         
         pawn_num = pawn.num()
-        others_lower = self.pawns.filter(lambda p: p.curr_part() == pawn.dest_part \
-            and p.num() < pawn_num)
-        return others_lower.size == pawn_num - 1 and all(lambda p: p.part() == p.dest_part, others_lower)
+        others_lower = list(filter(lambda p: p.curr_part() == pawn.dest_part \
+            and p.num() < pawn_num, self.pawns))
+        if len(others_lower) != pawn_num - 1:
+            return False
+
+        lower_for_part = list(map(lambda p: p.curr_pos.part() == p.dest_part, others_lower))
+        return all(lower_for_part)
+
+    def is_finish_pos(self, pos: Pos, dest_part: Part):
+        if pos.part() != dest_part:
+            return False
+        num = pos.num()
+        others_lower = self.pawns.filter(lambda p: \
+            p.curr_part() == dest_part and p.dest_part == dest_part and p.num() < num)
+        return others_lower.size == num - 1
+
+    def finish_pos(self, part: Part):
+        all_positions = part.all_positions_asc()
+        all_occupied = takewhile(lambda p: self.is_occupied(p), all_positions)
+        all_occ_pawns = list(map(lambda p: self.pawn_at(p), all_occupied))
+        occupied_length = len(all_occ_pawns)
+                
+        if (occupied_length == 4):
+            return []
+            
+        destinations = list(map(lambda p: p.dest_part, all_occ_pawns))
+        if all(map(lambda p: p == part, destinations)):
+            return [all_positions[occupied_length]]
+
+        return []
 
     def next_positions(self, pawn: Pawn):
         allowed_positions = []
         if pawn.is_finished():
-            return allowed_positions
+            return []      
 
-        # if pawn.part() == Part.X:
-            ############### Continue here
+    def accessible_in_x(self, curr_pos: Pos):
+        num = curr_pos.num()
+        part = curr_pos.part()
+        
+        if part == Part.X:
+            return self.accessible_in_x_from_num(num)
 
+        route_to_x = map(lambda n: Pos.build(part, n), range(4, num, -1))
+        if all(lambda p: not self.is_occupied(p), route_to_x):
+            entry_x_num = part.to_x_num()
+            return self.accessible_in_x_from_num(entry_x_num)
 
-
-def get_path(start: Pos, end: Pos):
-    path = []
-    start_part = start.part()
-    start_num = start.num()
-    end_part = end.part()
-    end_num = end.num()
-    if start_part == end_part:
-        if start_num == end_num:
-            return path
-    return path
-
-    #################### And continue here
-
-def corridor_entry(part: Part):
-    return 1 + int(part)    
+        return []      
+            
+    def accessible_in_x_from_num(self, x_num):
+        lower = map(lambda n: Pos.build(Part.X, n), reversed(range(1, x_num)))
+        higher = map(lambda n: Pos.build(Part.X, n), range(x_num, 12))
+        lower_free = takewhile(lambda p: not self.is_occupied(p), lower)
+        higher_free = takewhile(lambda p: not self.is_occupied(p), higher)
+        return lower_free + higher_free
 
 pawns = [
-    Pawn(Pos.A1, Part.B), Pawn(Pos.A2, Part.D), Pawn(Pos.A3, Part.D), Pawn(Pos.A4, Part.D),
+    Pawn(Pos.A1, Part.B), Pawn(Pos.A2, Part.D), Pawn(Pos.A3, Part.D), Pawn(Pos.A4, Part.B),
     Pawn(Pos.B1, Part.C), Pawn(Pos.B2, Part.B), Pawn(Pos.B3, Part.C), Pawn(Pos.B4, Part.C),
     Pawn(Pos.C1, Part.D), Pawn(Pos.C2, Part.A), Pawn(Pos.C3, Part.B), Pawn(Pos.C4, Part.A),
     Pawn(Pos.D1, Part.A), Pawn(Pos.D2, Part.C), Pawn(Pos.D3, Part.A), Pawn(Pos.D4, Part.D),
@@ -184,12 +256,12 @@ pawns = [
 
 board = Board(pawns)
 
-pos1 = Pos.C3
-pos2 = Pos.B4
-print(f"Dist = {pos1.dist(pos2)}")
-print(f"Occupied {pos1.name}: {board.is_occupied(pos1)}")
+pawn = board.pawn_at(Pos.C4)
+print(f"Is finished: {board.is_finished(pawn)}")
 
-pawn_test = Pawn(pos1, Part.B)
-print(f"Corr pos {pos1.name}: {pawn_test.corridor_entry_pos().name}")
+pawn.move_to(Pos.A2)
+print(f"Is finished: {board.is_finished(pawn)}")
 
-print(f"Start passage {pos1.name}: {list(map(lambda p: p.name, pawn_test.corridor_start_passage()))}")
+pawn.move_to(Pos.A1)
+print(f"Is finished: {board.is_finished(pawn)}")
+
