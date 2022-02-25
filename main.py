@@ -167,8 +167,8 @@ class Board:
     def is_allowed(self, pos: Pos):
         return not pos in [Pos.X3, Pos.X5, Pos.X7, Pos.X9]
 
-    def is_takable(self, pos: Pos):
-        return not self.is_occupied(pos) and self.is_takable(pos)
+    #def is_takable(self, pos: Pos):
+    #    return not self.is_occupied(pos) and self.is_takable(pos)
 
     def dest_open(self, pawn: Pawn):
         if self.is_occupied(Pos.build(pawn.dest_part, 4)):
@@ -212,7 +212,7 @@ class Board:
         all_occ_pawns = list(map(lambda p: self.pawn_at(p), all_occupied))
         occupied_length = len(all_occ_pawns)
                 
-        if (occupied_length == 4):
+        if occupied_length == 4:
             return []
             
         destinations = list(map(lambda p: p.dest_part, all_occ_pawns))
@@ -222,9 +222,29 @@ class Board:
         return []
 
     def next_positions(self, pawn: Pawn):
-        allowed_positions = []
         if pawn.is_finished():
-            return []      
+            return []
+
+        finish_pos = self.finish_pos(pawn)
+        if pawn.curr_part() == Part.X:
+            return [finish_pos[0]] if any(finish_pos) \
+                and self.can_reach(pawn.curr_pos, finish_pos[0]) else []
+
+        if any(finish_pos) and self.can_reach(pawn.curr_pos, finish_pos[0]):
+            return finish_pos[0]
+
+        x_entry_pos = pawn.curr_part().to_x_pos()
+        if can_reach(pawn.curr_pos, x_entry_pos):
+            accessible_xs = self.accessible_in_x_from_num(x_entry_pos.num())
+            allowed_xs = list(map(lambda p: self.is_allowed(p), accessible_xs))
+            return allowed_xs
+
+        return []
+
+    def can_reach(start: Pos, end: Pos):
+        return False # must be changed
+
+        ######### Continue here
 
     def accessible_in_x(self, curr_pos: Pos):
         num = curr_pos.num()
@@ -243,8 +263,8 @@ class Board:
     def accessible_in_x_from_num(self, x_num):
         lower = map(lambda n: Pos.build(Part.X, n), reversed(range(1, x_num)))
         higher = map(lambda n: Pos.build(Part.X, n), range(x_num, 12))
-        lower_free = takewhile(lambda p: not self.is_occupied(p), lower)
-        higher_free = takewhile(lambda p: not self.is_occupied(p), higher)
+        lower_free = list(takewhile(lambda p: not self.is_occupied(p), lower))
+        higher_free = list(takewhile(lambda p: not self.is_occupied(p), higher))
         return lower_free + higher_free
 
 pawns = [
