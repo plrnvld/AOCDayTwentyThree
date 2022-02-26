@@ -112,6 +112,14 @@ class Pos(IntEnum):
             return Pos(num)
         else:
             return Pos(int_part * 10 + num)
+
+    @classmethod
+    def to_path(start, end, part: Part, include_start = False):
+        start_excluded = start - 1 if include_start else start
+        if start_excluded == end:
+            return []
+        nums = reversed(range(end, start_excluded, -1 if start_excluded < end else 1))
+        return list(map(lambda n: Pos.build(part, n), nums))
    
 class Pawn:
     def __init__(self, start_pos: Pos, dest_part: Part):
@@ -135,7 +143,7 @@ class Pawn:
     def corridor_start_passage(self):
         start_part =self.start_pos.part()
         start_num = self.start_pos.num()
-        return [Pos.build(start_part, n) for n in reversed(range(4, start_num, -1))]
+        return Pos.to_path(start_num, 4, start_part)
 
     def move_to(self, pos: Pos):
         old_pos = self.curr_pos
@@ -164,21 +172,15 @@ class Board:
     def is_occupied(self, pos: Pos):
         return pos in map(lambda p: p.curr_pos, self.pawns)
 
+    def path_free(self, part: Part, start, end, start_included):
+        path = Pos.to_path(start, end, part, start_included)
+        for pos in path:
+            if self.is_occupied(pos):
+                return False
+        return True
+
     def is_allowed(self, pos: Pos):
         return not pos in [Pos.X3, Pos.X5, Pos.X7, Pos.X9]
-
-    #def is_takable(self, pos: Pos):
-    #    return not self.is_occupied(pos) and self.is_takable(pos)
-
-    def dest_open(self, pawn: Pawn):
-        if self.is_occupied(Pos.build(pawn.dest_part, 4)):
-            return False
-        return not any(lambda p: p.curr_part() == pawn.dest_part and p.dest_part != pawn.dest_part)
-
-    def start_open(self, pawn: Pawn):
-        if self.dest_open(pawn):
-            return True
-        return all(map(lambda p: not self.is_occupied(p), pawn.corridor_start.passage()))
 
     def pawn_at(self, pos: Pos):
         return next((p for p in pawns if p.curr_pos == pos), None)
@@ -234,17 +236,26 @@ class Board:
             return finish_pos[0]
 
         x_entry_pos = pawn.curr_part().to_x_pos()
-        if can_reach(pawn.curr_pos, x_entry_pos):
+        if self.can_reach(pawn.curr_pos, x_entry_pos):
             accessible_xs = self.accessible_in_x_from_num(x_entry_pos.num())
             allowed_xs = list(map(lambda p: self.is_allowed(p), accessible_xs))
             return allowed_xs
 
         return []
 
-    def can_reach(start: Pos, end: Pos):
-        return False # must be changed
+    def can_reach(self, start: Pos, end: Pos):
+        start_part = start.part()
+        end_part = end.part()
+        if start_part == end_part:
+            return self.path_free(start_part, start.num(), end.num(), False)
+
+        if end_part == Path.X:
+            x_entry = start_part.to_x_pos()
 
         ######### Continue here
+
+        
+            
 
     def accessible_in_x(self, curr_pos: Pos):
         num = curr_pos.num()
@@ -253,7 +264,7 @@ class Board:
         if part == Part.X:
             return self.accessible_in_x_from_num(num)
 
-        route_to_x = map(lambda n: Pos.build(part, n), range(4, num, -1))
+        route_to_x = Pos.to_path(num, 4, part)
         if all(lambda p: not self.is_occupied(p), route_to_x):
             entry_x_num = part.to_x_num()
             return self.accessible_in_x_from_num(entry_x_num)
