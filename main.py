@@ -1,7 +1,6 @@
-
+import copy
 from enum import IntEnum
 from itertools import takewhile
-from itertools import dropwhile
 
 class Part(IntEnum):
     X = 1
@@ -31,6 +30,14 @@ class Part(IntEnum):
         max_num = self.max_num()
         numbers = range(1, max_num + 1)
         return list(map(lambda n: Pos.build(self, n), numbers))
+
+    def to_path(self, start, end, include_start):
+        start_excluded = start - 1 if include_start else start
+        if start_excluded == end:
+            return []
+        nums = reversed(range(end, start_excluded, -1 if start_excluded < end else 1))
+        return list(map(lambda n: Pos.build(self, n), nums))
+   
 
     def __repr__(self):
         return self.name
@@ -112,15 +119,7 @@ class Pos(IntEnum):
             return Pos(num)
         else:
             return Pos(int_part * 10 + num)
-
-    @classmethod
-    def to_path(start, end, part: Part, include_start = False):
-        start_excluded = start - 1 if include_start else start
-        if start_excluded == end:
-            return []
-        nums = reversed(range(end, start_excluded, -1 if start_excluded < end else 1))
-        return list(map(lambda n: Pos.build(part, n), nums))
-   
+    
 class Pawn:
     def __init__(self, start_pos: Pos, dest_part: Part):
         self.moves = 0
@@ -139,11 +138,6 @@ class Pawn:
         start_part = self.start_pos.part()
         corr_pos = start_part.to_x_num()
         return Pos.build(Part.X, corr_pos)
-
-    def corridor_start_passage(self):
-        start_part =self.start_pos.part()
-        start_num = self.start_pos.num()
-        return Pos.to_path(start_num, 4, start_part)
 
     def move_to(self, pos: Pos):
         old_pos = self.curr_pos
@@ -172,8 +166,8 @@ class Board:
     def is_occupied(self, pos: Pos):
         return pos in map(lambda p: p.curr_pos, self.pawns)
 
-    def path_free(self, part: Part, start, end, start_included):
-        path = Pos.to_path(start, end, part, start_included)
+    def path_free(self, part: Part, start: int, end: int, start_included):
+        path = part.to_path(start, end, start_included)
         for pos in path:
             if self.is_occupied(pos):
                 return False
@@ -200,14 +194,6 @@ class Board:
         lower_for_part = list(map(lambda p: p.curr_pos.part() == p.dest_part, others_lower))
         return all(lower_for_part)
 
-    def is_finish_pos(self, pos: Pos, dest_part: Part):
-        if pos.part() != dest_part:
-            return False
-        num = pos.num()
-        others_lower = self.pawns.filter(lambda p: \
-            p.curr_part() == dest_part and p.dest_part == dest_part and p.num() < num)
-        return others_lower.size == num - 1
-
     def finish_pos(self, part: Part):
         all_positions = part.all_positions_asc()
         all_occupied = takewhile(lambda p: self.is_occupied(p), all_positions)
@@ -224,21 +210,21 @@ class Board:
         return []
 
     def next_positions(self, pawn: Pawn):
-        if pawn.is_finished():
+        if self.is_finished(pawn):
             return []
 
-        finish_pos = self.finish_pos(pawn)
+        finish_pos = self.finish_pos(pawn.dest_part)
         if pawn.curr_part() == Part.X:
             return [finish_pos[0]] if any(finish_pos) \
                 and self.can_reach(pawn.curr_pos, finish_pos[0]) else []
 
         if any(finish_pos) and self.can_reach(pawn.curr_pos, finish_pos[0]):
-            return finish_pos[0]
+            return [finish_pos[0]]
 
         x_entry_pos = pawn.curr_part().to_x_pos()
         if self.can_reach(pawn.curr_pos, x_entry_pos):
             accessible_xs = self.accessible_in_x_from_num(x_entry_pos.num())
-            allowed_xs = list(map(lambda p: self.is_allowed(p), accessible_xs))
+            allowed_xs = list(filter(lambda p: self.is_allowed(p), accessible_xs))
             return allowed_xs
 
         return []
@@ -249,13 +235,17 @@ class Board:
         if start_part == end_part:
             return self.path_free(start_part, start.num(), end.num(), False)
 
-        if end_part == Path.X:
-            x_entry = start_part.to_x_pos()
+        if end_part == Part.X:
+            return self.path_free(start_part, start.num(), 4, False) and \
+                self.path_free(Part.X, start_part.to_x_num(), end.num(), False)
 
-        ######### Continue here
+        if start_part == Part.X:
+            return self.path_free(Part.X, start.num(), end_part.to_x_num(), False) and \
+                self.path_free(end_part, 4, end.num(), True)
 
-        
-            
+        return self.path_free(start_part, start.num(), 4, False) and \
+            self.path_free(Part.X, start_part.to_x_num(), end_part.to_x_num(), True) and \
+            self.path_free(end_part, 4, end.num(), True)
 
     def accessible_in_x(self, curr_pos: Pos):
         num = curr_pos.num()
@@ -264,7 +254,7 @@ class Board:
         if part == Part.X:
             return self.accessible_in_x_from_num(num)
 
-        route_to_x = Pos.to_path(num, 4, part)
+        route_to_x = part.to_path(num, 4, False)
         if all(lambda p: not self.is_occupied(p), route_to_x):
             entry_x_num = part.to_x_num()
             return self.accessible_in_x_from_num(entry_x_num)
@@ -272,11 +262,38 @@ class Board:
         return []      
             
     def accessible_in_x_from_num(self, x_num):
-        lower = map(lambda n: Pos.build(Part.X, n), reversed(range(1, x_num)))
-        higher = map(lambda n: Pos.build(Part.X, n), range(x_num, 12))
-        lower_free = list(takewhile(lambda p: not self.is_occupied(p), lower))
+        lower = Part.X.to_path(x_num, 1, False)
+        higher = Part.X.to_path(x_num, 11, False)
+        lower_free = list(reversed(list(takewhile(lambda p: not self.is_occupied(p), lower))))
         higher_free = list(takewhile(lambda p: not self.is_occupied(p), higher))
         return lower_free + higher_free
+
+    def move_new_board(self, start: Pos, end: Pos):
+        print(f"> moving {start.name} to {end.name}")
+        new_board = copy.deepcopy(self)
+        pawn = new_board.pawn_at(start)
+        pawn.move_to(end)
+        return new_board
+
+    def pawn_char(self, pos: Pos):
+        result = next(filter(lambda p: p.curr_pos == pos, self.pawns), None)
+        return " " if result == None else result.dest_part.name
+
+    def print_board(self):
+        print()
+        print("#############")
+        xs_chars = ''.join(list(map(lambda p: self.pawn_char(p), Part.X.all_positions_asc())))
+        print("#" + xs_chars + "#")
+        print("###" + self.pawn_char(Pos.A4) + "#" + self.pawn_char(Pos.B4) + "#" \
+              + self.pawn_char(Pos.C4) + "#" + self.pawn_char(Pos.D4) + "###")
+        print("  #" + self.pawn_char(Pos.A3) + "#" + self.pawn_char(Pos.B3) + "#" \
+              + self.pawn_char(Pos.C3) + "#" + self.pawn_char(Pos.D3) + "#  ")
+        print("  #" + self.pawn_char(Pos.A2) + "#" + self.pawn_char(Pos.B2) + "#" \
+              + self.pawn_char(Pos.C2) + "#" + self.pawn_char(Pos.D2) + "#  ")
+        print("  #" + self.pawn_char(Pos.A1) + "#" + self.pawn_char(Pos.B1) + "#" \
+              + self.pawn_char(Pos.C1) + "#" + self.pawn_char(Pos.D1) + "#  ")
+        print("  #########  ")
+        print()
 
 pawns = [
     Pawn(Pos.A1, Part.B), Pawn(Pos.A2, Part.D), Pawn(Pos.A3, Part.D), Pawn(Pos.A4, Part.B),
@@ -287,12 +304,28 @@ pawns = [
 
 board = Board(pawns)
 
+board.print_board()
+
+pawn = board.pawn_at(Pos.A4)
+print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
+new_board = board.move_new_board(Pos.A4, Pos.X1)
+
+board.print_board()
+new_board.print_board()
+
+
+pawn = board.pawn_at(Pos.A3)
+print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
+board = board.move_new_board(Pos.A3, Pos.X2)
+
+pawn = board.pawn_at(Pos.A2)
+print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
+board = board.move_new_board(Pos.A2, Pos.X11)
+
+pawn = board.pawn_at(Pos.A1)
+print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
+board = board.move_new_board(Pos.A1, Pos.X8)
+
 pawn = board.pawn_at(Pos.C4)
-print(f"Is finished: {board.is_finished(pawn)}")
-
-pawn.move_to(Pos.A2)
-print(f"Is finished: {board.is_finished(pawn)}")
-
-pawn.move_to(Pos.A1)
-print(f"Is finished: {board.is_finished(pawn)}")
+print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
 
