@@ -159,6 +159,10 @@ class Pawn:
     def __repr__(self):
         return "Pawn at %s, dest = %s" % (self.curr_pos.name, self.dest_part)
 
+
+
+    
+
 class Board:
     def __init__(self, pawns):
         self.pawns: list[Pawn] = pawns
@@ -177,7 +181,7 @@ class Board:
         return not pos in [Pos.X3, Pos.X5, Pos.X7, Pos.X9]
 
     def pawn_at(self, pos: Pos):
-        return next((p for p in pawns if p.curr_pos == pos), None)
+        return next((p for p in self.pawns if p.curr_pos == pos), None)
 
     def is_finished(self, pawn: Pawn): 
         if pawn.moves == 2:
@@ -270,7 +274,7 @@ class Board:
 
     def move_new_board(self, start: Pos, end: Pos):
         print(f"> moving {start.name} to {end.name}")
-        new_board = copy.deepcopy(self)
+        new_board = copy.deepcopy(board)
         pawn = new_board.pawn_at(start)
         pawn.move_to(end)
         return new_board
@@ -295,37 +299,61 @@ class Board:
         print("  #########  ")
         print()
 
-pawns = [
+    def all_moves(self):
+        moves = []
+        for pawn in self.pawns:
+            next_for_pawn = self.next_positions(pawn)
+            moves_for_pawn = map(lambda p: Move(pawn.curr_pos, p), next_for_pawn)
+            moves.extend(moves_for_pawn)
+
+        return moves
+        
+class Move:
+    def __init__(self, start: Pos, end: Pos):
+        self.start = start
+        self.end = end
+
+    def apply_move(self, board: Board):
+        return board.move_new_board(self.start, self.end)
+
+    def __repr__(self):
+        return "Move %s ➡ %s" % (self.start.name, self.end.name)
+
+pawns_init = [
     Pawn(Pos.A1, Part.B), Pawn(Pos.A2, Part.D), Pawn(Pos.A3, Part.D), Pawn(Pos.A4, Part.B),
     Pawn(Pos.B1, Part.C), Pawn(Pos.B2, Part.B), Pawn(Pos.B3, Part.C), Pawn(Pos.B4, Part.C),
     Pawn(Pos.C1, Part.D), Pawn(Pos.C2, Part.A), Pawn(Pos.C3, Part.B), Pawn(Pos.C4, Part.A),
     Pawn(Pos.D1, Part.A), Pawn(Pos.D2, Part.C), Pawn(Pos.D3, Part.A), Pawn(Pos.D4, Part.D),
 ]
 
-board = Board(pawns)
+board = Board(pawns_init)
 
 board.print_board()
 
 pawn = board.pawn_at(Pos.A4)
 print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-new_board = board.move_new_board(Pos.A4, Pos.X1)
-
+board = board.move_new_board(Pos.A4, Pos.X1)
 board.print_board()
-new_board.print_board()
-
-
-pawn = board.pawn_at(Pos.A3)
-print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-board = board.move_new_board(Pos.A3, Pos.X2)
 
 pawn = board.pawn_at(Pos.A2)
 print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-board = board.move_new_board(Pos.A2, Pos.X11)
 
-pawn = board.pawn_at(Pos.A1)
-print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-board = board.move_new_board(Pos.A1, Pos.X8)
+print(board.all_moves())
 
-pawn = board.pawn_at(Pos.C4)
-print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
+######### Continue here, new board did not change?
+
+# pawn = board.pawn_at(Pos.A3)
+# print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
+# board = board.move_new_board(Pos.A3, Pos.X2)
+
+# pawn = board.pawn_at(Pos.A2)
+# print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
+# board = board.move_new_board(Pos.A2, Pos.X11)
+
+# pawn = board.pawn_at(Pos.A1)
+# print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
+# board = board.move_new_board(Pos.A1, Pos.X8)
+
+# pawn = board.pawn_at(Pos.C4)
+# print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
 
