@@ -155,17 +155,39 @@ class Pawn:
 class Board:
     def __init__(self, pawns):
         self.pawns: list[Pawn] = pawns
+        self.path_dict = {}
 
     def is_occupied(self, pos: Pos):
         return pos in map(lambda p: p.curr_pos, self.pawns)
 
     def path_free(self, part: Part, start: int, end: int, start_included):
+        real_start = start if start_included else start + 1
+        dict_value = self.get_from_dict(part, real_start, end)
+        
+        if dict_value != None:
+            return dict_value
+
         path = part.to_path(start, end, start_included)
         for pos in path:
             if self.is_occupied(pos):
+                self.store_in_dict(part, real_start, end, False)
                 return False
+                
+        self.store_in_dict(part, real_start, end, False)
         return True
 
+    def store_in_dict(self, part: Part, real_start: int, end: int, result: bool):
+        if real_start < end:
+            self.path_dict[(part, real_start, end)] = result
+        else:
+            self.path_dict[(part, end, real_start)] = result
+
+    def get_from_dict(self, part: Part, real_start: int, end: int):
+        if real_start < end:
+            return self.path_dict.get((part, real_start, end))
+        else:
+            return self.path_dict.get((part, end, real_start))
+            
     def is_allowed(self, pos: Pos):
         return not pos in [Pos.X3, Pos.X5, Pos.X7, Pos.X9]
 
@@ -259,6 +281,7 @@ class Board:
 
     def move_new_board(self, start: Pos, end: Pos):
         new_board = copy.deepcopy(self)
+        new_board.path_dict = {}
         pawn = new_board.pawn_at(start)
         pawn.move_to(end)
         return new_board
