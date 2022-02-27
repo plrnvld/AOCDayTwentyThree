@@ -2,9 +2,6 @@ import copy
 from enum import IntEnum
 from itertools import takewhile
 
-import sys
-sys.setrecursionlimit(10000)
-
 class Part(IntEnum):
     X = 1
     A = 2
@@ -18,9 +15,6 @@ class Part(IntEnum):
         else:
             return 4
             
-    def is_room(self):
-        return self != Part.X
-
     def to_x_num(self):
         if (self == Part.X):
             raise ValueError('Not supported for X.')
@@ -90,9 +84,6 @@ class Pos(IntEnum):
         else:
             return Part(divide)
 
-    def has_part(self, part):
-        return self.part() == part
-
     def dist(self, pos2):
         part1 = self.part()
         part2 = pos2.part()
@@ -161,7 +152,6 @@ class Pawn:
     def __repr__(self):
         return "Pawn at %s, dest = %s" % (self.curr_pos.name, self.dest_part)
    
-
 class Board:
     def __init__(self, pawns):
         self.pawns: list[Pawn] = pawns
@@ -202,7 +192,7 @@ class Board:
         all_occupied = takewhile(lambda p: self.is_occupied(p), all_positions)
         all_occ_pawns = list(map(lambda p: self.pawn_at(p), all_occupied))
         occupied_length = len(all_occ_pawns)
-                
+        
         if occupied_length == 4:
             return []
             
@@ -229,7 +219,6 @@ class Board:
             accessible_xs = self.accessible_in_x_from_num(x_entry_pos.num())
             allowed_xs = list(filter(lambda p: self.is_allowed(p), accessible_xs))
             return allowed_xs
-
         return []
 
     def can_reach(self, start: Pos, end: Pos):
@@ -252,16 +241,13 @@ class Board:
 
     def accessible_in_x(self, curr_pos: Pos):
         num = curr_pos.num()
-        part = curr_pos.part()
-        
+        part = curr_pos.part()        
         if part == Part.X:
             return self.accessible_in_x_from_num(num)
-
         route_to_x = part.to_path(num, 4, False)
         if all(lambda p: not self.is_occupied(p), route_to_x):
             entry_x_num = part.to_x_num()
             return self.accessible_in_x_from_num(entry_x_num)
-
         return []      
             
     def accessible_in_x_from_num(self, x_num):
@@ -272,7 +258,7 @@ class Board:
         return lower_free + higher_free
 
     def move_new_board(self, start: Pos, end: Pos):
-        new_board = copy.deepcopy(board)
+        new_board = copy.deepcopy(self)
         pawn = new_board.pawn_at(start)
         pawn.move_to(end)
         return new_board
@@ -321,7 +307,6 @@ class Move:
         self.end = end
 
     def apply_move(self, board: Board):
-        print(f"> Apply: {self}")
         return board.move_new_board(self.start, self.end)
 
     def __repr__(self):
@@ -334,31 +319,32 @@ pawns_init = [
     Pawn(Pos.D1, Part.A), Pawn(Pos.D2, Part.C), Pawn(Pos.D3, Part.A), Pawn(Pos.D4, Part.D),
 ]
 
-def check_moves(board: Board):
+cycle = 0
+move_to_test = 1
+
+def check_moves(board: Board, count: int):
+    global cycle
+    global move_to_test
+    cycle += 1
+    
     moves = board.all_moves()
-    moves_available = len(moves)
-    print("CURRENT")
-    board.print_board()
-    print(f"Available {moves_available}")
-    print(moves)
-    # print()
+    if cycle % 1000 == 0:
+        print(f"> cycle {cycle}")
+
     if any(moves):
-        move = moves[0]
-        new_board = move.apply_move(board)
-        print("NEW")
-        new_board.print_board()
-        
-        check_moves(new_board)
+        for move in moves:
+            if count == 1:
+                print(f"Move {move_to_test} from {len(moves)}")
+                move_to_test += 1
+            
+            new_board = move.apply_move(board)
+            check_moves(new_board, count + 1)
     else:
         if board.end_reached():
             print("End reached")
-        else:
-            print("Dead end")
 
 board = Board(pawns_init)
 
-check_moves(board)
+check_moves(board, 1)
 
-
-
-    
+print("-- All options checked --") 
