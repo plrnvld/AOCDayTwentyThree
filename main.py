@@ -156,9 +156,16 @@ class Board:
     def __init__(self, pawns):
         self.pawns: list[Pawn] = pawns
         self.path_dict = {}
+        self.occupied_dict = {}
 
     def is_occupied(self, pos: Pos):
-        return pos in map(lambda p: p.curr_pos, self.pawns)
+        occupied_value = self.occupied_dict.get(pos)
+        if occupied_value != None:
+            return occupied_value
+        
+        is_occupied = pos in map(lambda p: p.curr_pos, self.pawns)
+        self.occupied_dict[pos] = is_occupied
+        return is_occupied
 
     def path_free(self, part: Part, start: int, end: int, start_included):
         real_start = start if start_included else start + 1
@@ -282,6 +289,8 @@ class Board:
     def move_new_board(self, start: Pos, end: Pos):
         new_board = copy.deepcopy(self)
         new_board.path_dict = {}
+        new_board.occupied_dict = {}
+        # remove deepcopy
         pawn = new_board.pawn_at(start)
         pawn.move_to(end)
         return new_board
