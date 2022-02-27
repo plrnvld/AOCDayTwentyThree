@@ -2,6 +2,9 @@ import copy
 from enum import IntEnum
 from itertools import takewhile
 
+import sys
+sys.setrecursionlimit(10000)
+
 class Part(IntEnum):
     X = 1
     A = 2
@@ -38,7 +41,6 @@ class Part(IntEnum):
         nums = reversed(range(end, start_excluded, -1 if start_excluded < end else 1))
         return list(map(lambda n: Pos.build(self, n), nums))
    
-
     def __repr__(self):
         return self.name
 
@@ -158,10 +160,7 @@ class Pawn:
 
     def __repr__(self):
         return "Pawn at %s, dest = %s" % (self.curr_pos.name, self.dest_part)
-
-
-
-    
+   
 
 class Board:
     def __init__(self, pawns):
@@ -273,7 +272,6 @@ class Board:
         return lower_free + higher_free
 
     def move_new_board(self, start: Pos, end: Pos):
-        print(f"> moving {start.name} to {end.name}")
         new_board = copy.deepcopy(board)
         pawn = new_board.pawn_at(start)
         pawn.move_to(end)
@@ -307,13 +305,23 @@ class Board:
             moves.extend(moves_for_pawn)
 
         return moves
-        
+
+    def end_reached(self):
+        for part in [Part.A, Part.B, Part.C, Part.D]:
+            for pos in part.all_positions_asc():
+                pawn_on_pos = self.pawn_at(pos)
+                if pawn_on_pos == None or pawn_on_pos.dest_part != part:
+                    return False
+                    
+        return True
+                    
 class Move:
     def __init__(self, start: Pos, end: Pos):
         self.start = start
         self.end = end
 
     def apply_move(self, board: Board):
+        print(f"> Apply: {self}")
         return board.move_new_board(self.start, self.end)
 
     def __repr__(self):
@@ -326,34 +334,31 @@ pawns_init = [
     Pawn(Pos.D1, Part.A), Pawn(Pos.D2, Part.C), Pawn(Pos.D3, Part.A), Pawn(Pos.D4, Part.D),
 ]
 
+def check_moves(board: Board):
+    moves = board.all_moves()
+    moves_available = len(moves)
+    print("CURRENT")
+    board.print_board()
+    print(f"Available {moves_available}")
+    print(moves)
+    # print()
+    if any(moves):
+        move = moves[0]
+        new_board = move.apply_move(board)
+        print("NEW")
+        new_board.print_board()
+        
+        check_moves(new_board)
+    else:
+        if board.end_reached():
+            print("End reached")
+        else:
+            print("Dead end")
+
 board = Board(pawns_init)
 
-board.print_board()
+check_moves(board)
 
-pawn = board.pawn_at(Pos.A4)
-print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-board = board.move_new_board(Pos.A4, Pos.X1)
-board.print_board()
 
-pawn = board.pawn_at(Pos.A2)
-print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
 
-print(board.all_moves())
-
-######### Continue here, new board did not change?
-
-# pawn = board.pawn_at(Pos.A3)
-# print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-# board = board.move_new_board(Pos.A3, Pos.X2)
-
-# pawn = board.pawn_at(Pos.A2)
-# print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-# board = board.move_new_board(Pos.A2, Pos.X11)
-
-# pawn = board.pawn_at(Pos.A1)
-# print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-# board = board.move_new_board(Pos.A1, Pos.X8)
-
-# pawn = board.pawn_at(Pos.C4)
-# print(f"Next positions for {pawn}: {board.next_positions(pawn)}")
-
+    
