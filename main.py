@@ -157,6 +157,7 @@ class Board:
         self.pawns: list[Pawn] = pawns
         self.path_dict = {}
         self.occupied_dict = {}
+        self.pawn_dict = {}
 
     def is_occupied(self, pos: Pos):
         occupied_value = self.occupied_dict.get(pos)
@@ -199,7 +200,12 @@ class Board:
         return not pos in [Pos.X3, Pos.X5, Pos.X7, Pos.X9]
 
     def pawn_at(self, pos: Pos):
-        return next((p for p in self.pawns if p.curr_pos == pos), None)
+        if pos in self.pawn_dict:        
+            return self.pawn_dict[pos]
+        
+        pawn = next((p for p in self.pawns if p.curr_pos == pos), None)
+        self.pawn_dict[pos] = pawn
+        return pawn
 
     def is_finished(self, pawn: Pawn): 
         if pawn.moves == 2:
@@ -287,14 +293,14 @@ class Board:
         return lower_free + higher_free
 
     def move_new_board(self, start: Pos, end: Pos):
-        new_board = copy.deepcopy(self)
-        new_board.path_dict = {}
-        new_board.occupied_dict = {}
-        # remove deepcopy
+        new_pawns = copy.deepcopy(self.pawns)
+        new_board = Board(new_pawns)
         pawn = new_board.pawn_at(start)
         pawn.move_to(end)
         return new_board
 
+    # Good that this does not use pawn_at, because that uses cached results
+    # and can be outdated after a move
     def pawn_char(self, pos: Pos):
         result = next(filter(lambda p: p.curr_pos == pos, self.pawns), None)
         return " " if result == None else result.dest_part.name
