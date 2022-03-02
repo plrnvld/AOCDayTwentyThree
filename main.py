@@ -1,6 +1,6 @@
-import copy
 from enum import IntEnum
 from itertools import takewhile
+
 
 class Part(IntEnum):
     X = 1
@@ -34,6 +34,9 @@ class Part(IntEnum):
             return []
         nums = reversed(range(end, start_excluded, -1 if start_excluded < end else 1))
         return list(map(lambda n: Pos.build(self, n), nums))
+
+    def multiplier(self):
+        return [0, 1, 10, 100, 1000][self - 1]
    
     def __repr__(self):
         return self.name
@@ -121,6 +124,13 @@ class Pawn:
         self.dest_part = dest_part
         self.total_dist = 0
 
+    def copy_pawn(self):
+        new_pawn = Pawn(self.start_pos, self.dest_part)
+        new_pawn.moves = self.moves
+        new_pawn.curr_pos = self.curr_pos
+        new_pawn.total_dist = self.total_dist
+        return new_pawn
+
     def num(self):
         return self.curr_pos.num()
 
@@ -158,15 +168,26 @@ class Board:
         self.path_dict = {}
         self.occupied_dict = {}
         self.pawn_dict = {}
+        self.occupied = [[False] * 11, [False] * 4, [False] * 4, [False] * 4, [False] * 4]
+        # Can this be removed?
+        for pawn in self.pawns:
+            part = pawn.curr_part()
+            num = pawn.num()
+            self.occupied[part - 1][num - 1] = True
 
     def is_occupied(self, pos: Pos):
         occupied_value = self.occupied_dict.get(pos)
         if occupied_value != None:
             return occupied_value
-        
+    
         is_occupied = pos in map(lambda p: p.curr_pos, self.pawns)
         self.occupied_dict[pos] = is_occupied
         return is_occupied
+
+    #def is_occupied(self, pos: Pos):
+    #    part = pos.part()
+    #    num = pos.num()
+    #    return self.occupied[part - 1][num - 1]
 
     def path_free(self, part: Part, start: int, end: int, start_included):
         real_start = start if start_included else start + 1
@@ -293,7 +314,7 @@ class Board:
         return lower_free + higher_free
 
     def move_new_board(self, start: Pos, end: Pos):
-        new_pawns = copy.deepcopy(self.pawns)
+        new_pawns = list(map(lambda p: p.copy_pawn(), self.pawns))
         new_board = Board(new_pawns)
         pawn = new_board.pawn_at(start)
         pawn.move_to(end)
@@ -338,6 +359,13 @@ class Board:
                     return False
                     
         return True
+
+    def calc_score(self):
+        sum = 0
+        for pawn in self.pawns:
+            sum += pawn.total_dist * pawn.dest_part.multiplier()
+
+        return sum
                     
 class Move:
     def __init__(self, start: Pos, end: Pos):
@@ -357,16 +385,18 @@ pawns_init = [
     Pawn(Pos.D1, Part.A), Pawn(Pos.D2, Part.C), Pawn(Pos.D3, Part.A), Pawn(Pos.D4, Part.D),
 ]
 
+lowest_score = 1000000
 cycle = 0
 move_to_test = 1
 
 def check_moves(board: Board, count: int):
     global cycle
     global move_to_test
+    global lowest_score
     cycle += 1
     
     moves = board.all_moves()
-    if cycle % 1000 == 0:
+    if cycle % 10000 == 0:
         print(f"> cycle {cycle}")
 
     if any(moves):
@@ -379,10 +409,21 @@ def check_moves(board: Board, count: int):
             check_moves(new_board, count + 1)
     else:
         if board.end_reached():
-            print("End reached")
+            if board.end_reached():
+                score = board.calc_score()
+                print(f"End reached with score {score}")
+                if score < lowest_score:
+                    lowest_score = score
+                    print(f"Lowest score is now {lowest_score}")
 
 board = Board(pawns_init)
 
 check_moves(board, 1)
 
-print("-- All options checked --") 
+print("-- All options checked --")
+print(f"Lowest score = {lowest_score}")
+
+# 166 too low
+# 42752 too low
+# 42732 too low (😄)
+# In total 2.280.000 cycles
