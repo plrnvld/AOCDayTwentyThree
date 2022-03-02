@@ -1,6 +1,7 @@
 from enum import IntEnum
 from itertools import takewhile
 
+# Next, check with example
 
 class Part(IntEnum):
     X = 1
