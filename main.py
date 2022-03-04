@@ -2,6 +2,7 @@ from enum import IntEnum
 from itertools import takewhile
 import datetime
 
+
 class Part(IntEnum):
     X = 1
     A = 2
@@ -24,9 +25,16 @@ class Part(IntEnum):
         return Pos.build(Part.X, self.to_x_num())
 
     def all_positions_asc(self):
-        max_num = self.max_num()
-        numbers = range(1, max_num + 1)
-        return list(map(lambda n: Pos.build(self, n), numbers))
+        if self == Part.A:
+            return [Pos.A1, Pos.A2, Pos.A3, Pos.A4]
+        if self == Part.B:
+            return [Pos.B1, Pos.B2, Pos.B3, Pos.B4]
+        if self == Part.C:
+            return [Pos.C1, Pos.C2, Pos.C3, Pos.C4]
+        if self == Part.D:
+            return [Pos.D1, Pos.D2, Pos.D3, Pos.D4]
+
+        return [Pos.X1, Pos.X2, Pos.X3, Pos.X4, Pos.X5, Pos.X6, Pos.X7, Pos.X8, Pos.X9, Pos.X10, Pos.X11]
 
     def to_path(self, start, end, include_start):
         start_excluded = start - 1 if include_start else start
@@ -75,14 +83,14 @@ class Pos(IntEnum):
 
     def num(self):
         enum_int = int(self)
-        if (enum_int >= 20):
+        if enum_int >= 20:
             return enum_int % 10
         else:
             return enum_int
 
     def part(self):
         divide = int(int(self) / 10)
-        if (divide == 0):
+        if divide == 0:
             return Part(1)
         else:
             return Part(divide)
@@ -111,24 +119,24 @@ class Pos(IntEnum):
     @classmethod
     def build(cls, part: Part, num):
         int_part = int(part)
-        if (int_part == 1):
+        if int_part == 1:
             return Pos(num)
         else:
             return Pos(int_part * 10 + num)
     
 class Pawn:
     def __init__(self, start_pos: Pos, dest_part: Part):
-        self.moves = 0
         self.start_pos = start_pos
         self.curr_pos = start_pos
         self.dest_part = dest_part
         self.total_dist = 0
+        self.is_finished_cached = False
 
     def copy_pawn(self):
         new_pawn = Pawn(self.start_pos, self.dest_part)
-        new_pawn.moves = self.moves
         new_pawn.curr_pos = self.curr_pos
         new_pawn.total_dist = self.total_dist
+        new_pawn.is_finished_cached = self.is_finished_cached
         return new_pawn
 
     def num(self):
@@ -146,15 +154,13 @@ class Pawn:
         old_pos = self.curr_pos
         self.curr_pos = pos
         self.total_dist += old_pos.dist(pos)
-        self.moves += 1
 
-    def move_new(self, pos: Pos):
-        old_pos = self.curr_pos
-        new_pawn = Pawn(self.start_pos, self.dest_part)
-        new_pawn.curr_pos = pos
-        new_pawn.total_dist += old_pos.dist(pos)
-        new_pawn.moves = self.moves + 1
-        return new_pawn
+    # def move_new(self, pos: Pos):
+     #   old_pos = self.curr_pos
+      #  new_pawn = Pawn(self.start_pos, self.dest_part)
+      #  new_pawn.curr_pos = pos
+      #  new_pawn.total_dist += old_pos.dist(pos)
+      #  return new_pawn
 
     def curr_part(self):
         return self.curr_pos.part()
@@ -168,6 +174,8 @@ class Board:
         self.path_dict = {}
         self.occupied_dict = {}
         self.pawn_dict = {}
+        self.finish_pos_dict = {}
+        self.moves = []
         self.occupied = [[False] * 11, [False] * 4, [False] * 4, [False] * 4, [False] * 4]
         for pawn in self.pawns:
             part = pawn.curr_part()
@@ -175,7 +183,7 @@ class Board:
             self.occupied[part - 1][num - 1] = True
 
     def is_occupied(self, pos: Pos):
-        return self.is_occupied_impl1(pos)
+        return self.is_occupied_impl2(pos)
 
     def is_occupied_impl1(self, pos: Pos):
         occupied_value = self.occupied_dict.get(pos)
@@ -230,47 +238,54 @@ class Board:
         self.pawn_dict[pos] = pawn
         return pawn
 
-    def is_finished(self, pawn: Pawn): 
-        if pawn.moves == 2:
+    def is_finished(self, pawn: Pawn):
+        if pawn.is_finished_cached:
             return True
-        if pawn.curr_part() != pawn.dest_part:
-            return False
-        
-        pawn_num = pawn.num()
-        others_lower = list(filter(lambda p: p.curr_part() == pawn.dest_part \
-            and p.num() < pawn_num, self.pawns))
-        if len(others_lower) != pawn_num - 1:
-            return False
 
-        lower_for_part = list(map(lambda p: p.curr_pos.part() == p.dest_part, others_lower))
-        return all(lower_for_part)
+        curr_pos = pawn.curr_pos
+        curr_part = curr_pos.part()
+        if curr_pos.part() == pawn.dest_part:
+            nums_lower = range(1, pawn.num())
+        
+            nums_lower = range(1, curr_pos.num())
+            for num in nums_lower:
+                pawn_lower = self.pawn_at(Pos.build(curr_part, num))
+                if pawn_lower == None or pawn_lower.dest_part != curr_part:
+                    return False
+            
+            pawn.is_finished_cached = True
+            return True
+        
+        return False
 
     def finish_pos(self, part: Part):
-        all_positions = part.all_positions_asc()
-        all_occupied = takewhile(lambda p: self.is_occupied(p), all_positions)
-        all_occ_pawns = list(map(lambda p: self.pawn_at(p), all_occupied))
-        occupied_length = len(all_occ_pawns)
-        
-        if occupied_length == 4:
-            return []
-            
-        destinations = list(map(lambda p: p.dest_part, all_occ_pawns))
-        if all(map(lambda p: p == part, destinations)):
-            return [all_positions[occupied_length]]
+        if part in self.finish_pos_dict:
+            return self.finish_pos_dict[part]
 
-        return []
+        all_positions_desc = list(reversed(part.all_positions_asc()))
+        all_pawns = list(map(lambda p: self.pawn_at(p), all_positions_desc))
+        
+        all_open = list(takewhile(lambda p: p == None, all_pawns))
+        all_open_len = len(all_open)
+        
+        if all_open_len > 0 and (all_open_len == 4 or self.is_finished(all_pawns[all_open_len])):
+            finish = all_positions_desc[all_open_len - 1]
+            self.finish_pos_dict[part] = finish
+            return finish
+            
+        self.finish_pos_dict[part] = None
+        return None
 
     def next_positions(self, pawn: Pawn):
         if self.is_finished(pawn):
             return []
 
         finish_pos = self.finish_pos(pawn.dest_part)
-        if pawn.curr_part() == Part.X:
-            return [finish_pos[0]] if any(finish_pos) \
-                and self.can_reach(pawn.curr_pos, finish_pos[0]) else []
-
-        if any(finish_pos) and self.can_reach(pawn.curr_pos, finish_pos[0]):
-            return [finish_pos[0]]
+        if finish_pos != None and self.can_reach(pawn.curr_pos, finish_pos):
+            return [finish_pos]
+        else: 
+            if pawn.curr_part() == Part.X:
+                return [] # Pawn is already at X and cannot finish
 
         x_entry_pos = pawn.curr_part().to_x_pos()
         if self.can_reach(pawn.curr_pos, x_entry_pos):
@@ -294,7 +309,7 @@ class Board:
                 self.path_free(end_part, 4, end.num(), True)
 
         return self.path_free(start_part, start.num(), 4, False) and \
-            self.path_free(Part.X, start_part.to_x_num(), end_part.to_x_num(), True) and \
+            self.path_free(Part.X, start_part.to_x_num(), end_part.to_x_num(), False) and \
             self.path_free(end_part, 4, end.num(), True)
 
     def accessible_in_x(self, curr_pos: Pos):
@@ -317,9 +332,13 @@ class Board:
 
     def move_new_board(self, start: Pos, end: Pos):
         new_pawns = list(map(lambda p: p.copy_pawn(), self.pawns))
-        new_board = Board(new_pawns)
-        pawn = new_board.pawn_at(start)
+        pawn = next(filter(lambda p: p.curr_pos == start, new_pawns), None)
         pawn.move_to(end)
+        new_board = Board(new_pawns)
+        existing_moves = self.moves.copy()
+        existing_moves.append(f"({pawn}) moved {start.name} ➡ {end.name}")
+        new_moves = existing_moves
+        new_board.moves = new_moves
         return new_board
 
     # Good that this does not use pawn_at, because that uses cached results
@@ -348,7 +367,9 @@ class Board:
         moves = []
         for pawn in self.pawns:
             next_for_pawn = self.next_positions(pawn)
-            moves_for_pawn = map(lambda p: Move(pawn.curr_pos, p), next_for_pawn)
+            moves_for_pawn = list(map(lambda p: Move(pawn.curr_pos, p), next_for_pawn))
+            # if len(moves_for_pawn) > 0:
+                # print(f"{pawn} has moves: {moves}")
             moves.extend(moves_for_pawn)
 
         return moves
@@ -368,6 +389,9 @@ class Board:
             sum += pawn.total_dist * pawn.dest_part.multiplier()
 
         return sum
+
+    def __repr__(self):
+        return f"Board with {len(self.moves)} moves"
                     
 class Move:
     def __init__(self, start: Pos, end: Pos):
@@ -380,31 +404,47 @@ class Move:
     def __repr__(self):
         return "Move %s ➡ %s" % (self.start.name, self.end.name)
 
-pawns_init = [
+pawns_init_part_2 = [
     Pawn(Pos.A4, Part.B), Pawn(Pos.B4, Part.C), Pawn(Pos.C4, Part.A), Pawn(Pos.D4, Part.D),
     Pawn(Pos.A3, Part.D), Pawn(Pos.B3, Part.C), Pawn(Pos.C3, Part.B), Pawn(Pos.D3, Part.A), 
     Pawn(Pos.A2, Part.D), Pawn(Pos.B2, Part.B), Pawn(Pos.C2, Part.A), Pawn(Pos.D2, Part.C), 
     Pawn(Pos.A1, Part.B), Pawn(Pos.B1, Part.C), Pawn(Pos.C1, Part.D), Pawn(Pos.D1, Part.A)]
 
+pawns_init_part_1 = [
+    Pawn(Pos.A4, Part.B), Pawn(Pos.B4, Part.C), Pawn(Pos.C4, Part.A), Pawn(Pos.D4, Part.D),
+    Pawn(Pos.A3, Part.B), Pawn(Pos.B3, Part.C), Pawn(Pos.C3, Part.D), Pawn(Pos.D3, Part.A),
+    Pawn(Pos.A2, Part.A), Pawn(Pos.B2, Part.B), Pawn(Pos.C2, Part.C), Pawn(Pos.D2, Part.D), 
+    Pawn(Pos.A1, Part.A), Pawn(Pos.B1, Part.B), Pawn(Pos.C1, Part.C), Pawn(Pos.D1, Part.D)]
+
+pawns_init_experiment = [
+    Pawn(Pos.A4, Part.B), Pawn(Pos.B4, Part.A), Pawn(Pos.C4, Part.C), Pawn(Pos.D4, Part.D),
+    Pawn(Pos.A3, Part.A), Pawn(Pos.B3, Part.B), Pawn(Pos.C3, Part.C), Pawn(Pos.D3, Part.D),
+    Pawn(Pos.A2, Part.A), Pawn(Pos.B2, Part.B), Pawn(Pos.C2, Part.C), Pawn(Pos.D2, Part.D), 
+    Pawn(Pos.A1, Part.A), Pawn(Pos.B1, Part.B), Pawn(Pos.C1, Part.C), Pawn(Pos.D1, Part.D)]
+
 lowest_score = 1000000
 cycle = 0
 move_to_test = 1
+winning_moves = []
 
 def check_moves(board_start: Board):
     global cycle
     global move_to_test
     global lowest_score
+    global winning_moves
 
     print("Checking boards started")
     
     boards_to_check = [board_start]
 
     while len(boards_to_check) > 0:
-        curr_board = boards_to_check.pop()
+        # print(f"Boards to check: {boards_to_check}")
+        curr_board = boards_to_check.pop(0)
     
         moves = curr_board.all_moves()
+        # print(moves)
 
-        if any(moves):
+        if len(moves) > 0:
             boards_to_insert = []
             for move in moves:
                 new_board = move.apply_move(curr_board)
@@ -419,17 +459,22 @@ def check_moves(board_start: Board):
         else:
             if curr_board.end_reached():
                 score = curr_board.calc_score()
-                print(f"End reached with score {score}")
+                # print(f"---> End reached: score {score}")
                 if score < lowest_score:
                     lowest_score = score
-                print(f"Lowest score is now {lowest_score}")
+                    winning_moves = curr_board.moves.copy()
+                    print(f"Lowest score is now {lowest_score}")
             # else:
             #    print("Dead end")
 
-check_moves(Board(pawns_init))
+check_moves(Board(pawns_init_part_1))
 
 print("-- All options checked --")
 print(f"Lowest score = {lowest_score}")
+
+for move in winning_moves:
+    print(">  " + move)
+
 
 # 166 too low
 # 42752 too low
