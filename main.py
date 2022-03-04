@@ -2,7 +2,6 @@ from enum import IntEnum
 from itertools import takewhile
 import datetime
 
-
 class Part(IntEnum):
     X = 1
     A = 2
@@ -154,13 +153,6 @@ class Pawn:
         old_pos = self.curr_pos
         self.curr_pos = pos
         self.total_dist += old_pos.dist(pos)
-
-    # def move_new(self, pos: Pos):
-     #   old_pos = self.curr_pos
-      #  new_pawn = Pawn(self.start_pos, self.dest_part)
-      #  new_pawn.curr_pos = pos
-      #  new_pawn.total_dist += old_pos.dist(pos)
-      #  return new_pawn
 
     def curr_part(self):
         return self.curr_pos.part()
@@ -368,8 +360,6 @@ class Board:
         for pawn in self.pawns:
             next_for_pawn = self.next_positions(pawn)
             moves_for_pawn = list(map(lambda p: Move(pawn.curr_pos, p), next_for_pawn))
-            # if len(moves_for_pawn) > 0:
-                # print(f"{pawn} has moves: {moves}")
             moves.extend(moves_for_pawn)
 
         return moves
@@ -438,12 +428,9 @@ def check_moves(board_start: Board):
     boards_to_check = [board_start]
 
     while len(boards_to_check) > 0:
-        # print(f"Boards to check: {boards_to_check}")
         curr_board = boards_to_check.pop(0)
-    
         moves = curr_board.all_moves()
-        # print(moves)
-
+        
         if len(moves) > 0:
             boards_to_insert = []
             for move in moves:
@@ -459,15 +446,12 @@ def check_moves(board_start: Board):
         else:
             if curr_board.end_reached():
                 score = curr_board.calc_score()
-                # print(f"---> End reached: score {score}")
                 if score < lowest_score:
                     lowest_score = score
                     winning_moves = curr_board.moves.copy()
                     print(f"Lowest score is now {lowest_score}")
-            # else:
-            #    print("Dead end")
 
-check_moves(Board(pawns_init_part_1))
+check_moves(Board(pawns_init_part_2))
 
 print("-- All options checked --")
 print(f"Lowest score = {lowest_score}")
