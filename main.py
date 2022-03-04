@@ -1,7 +1,6 @@
 from enum import IntEnum
 from itertools import takewhile
-
-# Next, check with example
+import datetime
 
 class Part(IntEnum):
     X = 1
@@ -170,13 +169,15 @@ class Board:
         self.occupied_dict = {}
         self.pawn_dict = {}
         self.occupied = [[False] * 11, [False] * 4, [False] * 4, [False] * 4, [False] * 4]
-        # Can this be removed?
         for pawn in self.pawns:
             part = pawn.curr_part()
             num = pawn.num()
             self.occupied[part - 1][num - 1] = True
 
     def is_occupied(self, pos: Pos):
+        return self.is_occupied_impl1(pos)
+
+    def is_occupied_impl1(self, pos: Pos):
         occupied_value = self.occupied_dict.get(pos)
         if occupied_value != None:
             return occupied_value
@@ -185,10 +186,10 @@ class Board:
         self.occupied_dict[pos] = is_occupied
         return is_occupied
 
-    #def is_occupied(self, pos: Pos):
-    #    part = pos.part()
-    #    num = pos.num()
-    #    return self.occupied[part - 1][num - 1]
+    def is_occupied_impl2(self, pos: Pos):
+        part = pos.part()
+        num = pos.num()
+        return self.occupied[part - 1][num - 1]
 
     def path_free(self, part: Part, start: int, end: int, start_included):
         real_start = start if start_included else start + 1
@@ -380,46 +381,52 @@ class Move:
         return "Move %s ➡ %s" % (self.start.name, self.end.name)
 
 pawns_init = [
-    Pawn(Pos.A1, Part.B), Pawn(Pos.A2, Part.D), Pawn(Pos.A3, Part.D), Pawn(Pos.A4, Part.B),
-    Pawn(Pos.B1, Part.C), Pawn(Pos.B2, Part.B), Pawn(Pos.B3, Part.C), Pawn(Pos.B4, Part.C),
-    Pawn(Pos.C1, Part.D), Pawn(Pos.C2, Part.A), Pawn(Pos.C3, Part.B), Pawn(Pos.C4, Part.A),
-    Pawn(Pos.D1, Part.A), Pawn(Pos.D2, Part.C), Pawn(Pos.D3, Part.A), Pawn(Pos.D4, Part.D),
-]
+    Pawn(Pos.A4, Part.B), Pawn(Pos.B4, Part.C), Pawn(Pos.C4, Part.A), Pawn(Pos.D4, Part.D),
+    Pawn(Pos.A3, Part.D), Pawn(Pos.B3, Part.C), Pawn(Pos.C3, Part.B), Pawn(Pos.D3, Part.A), 
+    Pawn(Pos.A2, Part.D), Pawn(Pos.B2, Part.B), Pawn(Pos.C2, Part.A), Pawn(Pos.D2, Part.C), 
+    Pawn(Pos.A1, Part.B), Pawn(Pos.B1, Part.C), Pawn(Pos.C1, Part.D), Pawn(Pos.D1, Part.A)]
 
 lowest_score = 1000000
 cycle = 0
 move_to_test = 1
 
-def check_moves(board: Board, count: int):
+def check_moves(board_start: Board):
     global cycle
     global move_to_test
     global lowest_score
-    cycle += 1
-    
-    moves = board.all_moves()
-    if cycle % 10000 == 0:
-        print(f"> cycle {cycle}")
 
-    if any(moves):
-        for move in moves:
-            if count == 1:
-                print(f"Move {move_to_test} from {len(moves)}")
-                move_to_test += 1
-            
-            new_board = move.apply_move(board)
-            check_moves(new_board, count + 1)
-    else:
-        if board.end_reached():
-            if board.end_reached():
-                score = board.calc_score()
+    print("Checking boards started")
+    
+    boards_to_check = [board_start]
+
+    while len(boards_to_check) > 0:
+        curr_board = boards_to_check.pop()
+    
+        moves = curr_board.all_moves()
+
+        if any(moves):
+            boards_to_insert = []
+            for move in moves:
+                new_board = move.apply_move(curr_board)
+                boards_to_insert.append(new_board)             
+            for b in boards_to_insert:
+                boards_to_check.insert(0, b)
+
+            cycle += 1
+            if cycle % 20000 == 0:
+                time_format = "%H:%M:%S"
+                print(f"> cycle {cycle}, time: {datetime.datetime.now().strftime(time_format)}, boards active: {len(boards_to_check)}")
+        else:
+            if curr_board.end_reached():
+                score = curr_board.calc_score()
                 print(f"End reached with score {score}")
                 if score < lowest_score:
                     lowest_score = score
-                    print(f"Lowest score is now {lowest_score}")
+                print(f"Lowest score is now {lowest_score}")
+            # else:
+            #    print("Dead end")
 
-board = Board(pawns_init)
-
-check_moves(board, 1)
+check_moves(Board(pawns_init))
 
 print("-- All options checked --")
 print(f"Lowest score = {lowest_score}")
